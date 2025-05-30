@@ -1,10 +1,10 @@
-name: CI
+name: Sanity Test
 
 on:
-  push:
-    branches:
-      - develop
   pull_request:
+  schedule:
+    # Run everday at midnight UTC / 5:30 IST
+    - cron: "0 0 * * *"
 
 concurrency:
   group: develop-caffeine-${{ github.event.number }}
