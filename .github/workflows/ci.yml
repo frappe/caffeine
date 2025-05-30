@@ -3,8 +3,8 @@ name: Sanity Test
 on:
   pull_request:
   schedule:
-    # Run everday at midnight UTC / 5:30 IST
-    - cron: "0 0 * * *"
+    # Run every monday at midnight UTC / 5:30 IST
+    - cron: "0 0 * * 1"
 
 concurrency:
   group: develop-caffeine-${{ github.event.number }}
