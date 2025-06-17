@@ -3,11 +3,18 @@ from functools import lru_cache
 
 import frappe
 from frappe.app import application as _trigger_imports
-from frappe.tests.utils import toggle_test_mode
 from frappe.utils import get_test_client
 from frappe.utils.user import AUTOMATIC_ROLES
 
 from caffeine.microbenchmarks.utils import NanoBenchmark
+
+try:
+	from frappe.tests.utils import toggle_test_mode
+except ImportError:
+
+	def toggle_test_mode(*args, **kwargs):
+		frappe.flags.in_test = True
+
 
 TEST_USER = "test@example.com"
 
