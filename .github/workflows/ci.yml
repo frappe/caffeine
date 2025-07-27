@@ -106,6 +106,7 @@ jobs:
           bench use test_site
           bench start &>> bench_start.log &
           bench --site test_site set-config allow_tests true
+          bench set-config -g server_script_enabled true
           bench --site test_site setup-loadtest-data --n-items 10 --users-per-warehouse 1 --customers-per-warehouse 1
         env:
           CI: 'Yes'
