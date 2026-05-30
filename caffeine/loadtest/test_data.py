@@ -69,7 +69,7 @@ class Setup:
 
 		# just copied from ERPNext
 		defaults = {
-			"customer_group": get_root_of("Customer Group"),
+			"customer_group": "Individual",
 			"territory": get_root_of("Territory"),
 		}
 		frappe.db.set_single_value("Selling Settings", defaults)
@@ -137,7 +137,7 @@ class Setup:
 		template = (
 			frappe.new_doc(
 				"Customer",
-				customer_group=get_root_of("Customer Group"),
+				customer_group="Individual",
 				customer_name=next(name),
 			)
 			.insert()
