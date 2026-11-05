@@ -85,6 +85,8 @@ class Setup:
 		for key, value in defaults.items():
 			frappe.db.set_default(key, value)
 		frappe.db.set_single_value("Stock Settings", "auto_insert_price_list_rate_if_missing", 0)
+		# "Each Transaction" updates the Company row on every invoice submit, which serializes all invoices.
+		frappe.db.set_single_value("Selling Settings", "sales_update_frequency", "Daily")
 
 		frappe.db.commit()
 
