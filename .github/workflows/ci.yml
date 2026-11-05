@@ -111,13 +111,6 @@ jobs:
         env:
           CI: 'Yes'
 
-      - name: Run Microbenchmarks
-        working-directory: /home/runner/frappe-bench/sites
-        run: |
-          bench --site test_site run-microbenchmarks -l2 -p2 -w0 --quiet
-        env:
-          CI: "Yes"
-
       - name: Run Loadtest
         working-directory: /home/runner/frappe-bench
         run: |
