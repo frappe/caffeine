@@ -145,6 +145,7 @@ export function sales_invoice_payment(config, invoice) {
 		);
 		let payment = JSON.parse(make_payment.body).message;
 		payment.__islocal = 1;
+		payment.branch = invoice.branch;
 		payment.name = `new-payment-entry-${getRandomInt(0, 1000000)}`;
 
 		sleep(0.5);
@@ -186,6 +187,7 @@ export function deliver_items(config, invoice) {
 		);
 		let delivery = JSON.parse(make_delivery.body).message;
 		delivery.__islocal = 1;
+		delivery.branch = invoice.branch;
 		delivery.name = `new-delivery-note-${getRandomInt(0, 1000000)}`;
 
 		sleep(0.5);
