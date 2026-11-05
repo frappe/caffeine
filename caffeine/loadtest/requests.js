@@ -179,7 +179,7 @@ export function deliver_items(config, invoice) {
 		let make_delivery = request(
 			"/api/method/frappe.model.mapper.make_mapped_doc",
 			{
-				method: "erpnext.accounts.doctype.sales_invoice.sales_invoice.make_delivery_note",
+				method: "erpnext.accounts.doctype.sales_invoice.mapper.make_delivery_note",
 				source_name: invoice.name,
 			},
 			make_delivery_trend
