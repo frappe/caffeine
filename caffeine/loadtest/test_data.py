@@ -10,6 +10,7 @@ from frappe.core.doctype.doctype.doctype import make_property_setter
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.desk.page.setup_wizard.setup_wizard import setup_complete
 from frappe.model.document import bulk_insert
+from frappe.model.naming import NamingSeries
 from frappe.permissions import AUTOMATIC_ROLES
 from frappe.utils import now_datetime
 
@@ -18,6 +19,13 @@ ITEM_NAME = "I-{}"
 WAREHOUSE_NAME = "WH-{}"
 CUSTOMER_NAME = "C-{}"
 USER_NAME = "u-{}@erpc.local"
+
+# Branch specific naming to minimize contention.
+NAMING_SERIES = {
+	"Sales Invoice": "INV-.branch.-.######",
+	"Delivery Note": "DN-.branch.-.######",
+	"Payment Entry": "PE-.branch.-.######",
+}
 
 
 @dataclass
@@ -37,6 +45,7 @@ class Setup:
 		self.setup_company()
 		self.setup_items()
 		self.setup_warehouses()
+		self.setup_series_counters()
 		self.setup_customers()
 		self.setup_users()
 		self.setup_opening_stock()
@@ -76,6 +85,8 @@ class Setup:
 		for key, value in defaults.items():
 			frappe.db.set_default(key, value)
 		frappe.db.set_single_value("Stock Settings", "auto_insert_price_list_rate_if_missing", 0)
+		# "Each Transaction" updates the Company row on every invoice submit, which serializes all invoices.
+		frappe.db.set_single_value("Selling Settings", "sales_update_frequency", "Daily")
 
 		frappe.db.commit()
 
@@ -90,15 +101,7 @@ class Setup:
 		)
 
 	def setup_custom_naming(self):
-		"""Setup branch specific naming to minimize contention."""
-
-		naming_series = {
-			"Sales Invoice": "INV-.branch.-.######",
-			"Delivery Note": "DN-.branch.-.######",
-			"Payment Entry": "PE-.branch.-.######",
-		}
-
-		for doctype, series in naming_series.items():
+		for doctype, series in NAMING_SERIES.items():
 			make_property_setter(doctype, "naming_series", "default", "", "Text")
 			make_property_setter(doctype, "naming_series", "options", series, "Text")
 			make_property_setter(doctype, "naming_series", "default", series, "Text")
@@ -130,6 +133,17 @@ class Setup:
 			warehouse.company = COMPANY_NAME
 			warehouse.warehouse_name = warehouse.name = next(name)
 			warehouse.insert()
+		frappe.db.commit()
+
+	def setup_series_counters(self):
+		"""Create series counters for every branch.
+
+		Concurrent first inserts of new series rows take gap locks on `tabSeries` and deadlock."""
+		warehouses = frappe.get_all("Warehouse", {"name": ("like", "WH-%")}, pluck="name")
+		for warehouse in warehouses:
+			branch = warehouse.removeprefix("WH-")
+			for doctype, series in NAMING_SERIES.items():
+				NamingSeries(series).update_counter(0, doc=frappe.new_doc(doctype, branch=branch))
 		frappe.db.commit()
 
 	def setup_customers(self):

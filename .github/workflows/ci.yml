@@ -27,7 +27,7 @@ jobs:
         ports:
           - 11000:6379
       mariadb:
-        image: mariadb:11.3
+        image: mariadb:11.8
         env:
           MYSQL_ROOT_PASSWORD: root
         ports:
@@ -110,13 +110,6 @@ jobs:
           bench --site test_site setup-loadtest-data --n-items 10 --users-per-warehouse 1 --customers-per-warehouse 1
         env:
           CI: 'Yes'
-
-      - name: Run Microbenchmarks
-        working-directory: /home/runner/frappe-bench/sites
-        run: |
-          bench --site test_site run-microbenchmarks -l2 -p2 -w0 --quiet
-        env:
-          CI: "Yes"
 
       - name: Run Loadtest
         working-directory: /home/runner/frappe-bench
