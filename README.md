@@ -40,6 +40,8 @@ bench --site test_site setup-loadtest-data
 k6 run --vus 100 --duration 10m -e BASE_URL=http://sitename:port ./apps/caffeine/caffeine/loadtest/script.js
 ```
 
+Other k6 variables: `THINK_TIME` multiplies the pauses between steps (`0` turns them off), `ITEMS_PER_INVOICE` sets the item rows per invoice (default 3), and `SITE` sends the site name as a header, so `BASE_URL` can be an IP address.
+
 Note: fixture records have hard-coded naming to simplify writing tests without sending too many arguments. We intend to make it flexible over time if required.
 
 #### Workload
@@ -112,6 +114,37 @@ The ~130K transactions/hour result comes from a 2-hour soak test with 100 virtua
 
 These numbers apply only to this workload and this hardware. Use them to estimate the order of magnitude only.
 If you need better estimates, write a workload that matches your use case and test it on your hardware.
+
+#### Profiled runs and regression diffs
+
+`caffeine/loadtest/harness/lt.py` runs the same workload with measurements, so you can compare two builds. It starts its own gunicorn, job worker and scheduler for the site, so stop the bench's own web and worker processes first.
+
+- `load`: k6 with py-spy on the web and worker processes. It also records database and redis counters, the slow log, row-lock waits, the latest InnoDB deadlock, Error Log entries and the host load.
+- `profile`: one user and the recorder, at 1 and 11 items per invoice. It gives the queries per request and per item row, with their call sites.
+- `compare`: lists the regressions between two runs first, then the improvements.
+
+```bash
+./env/bin/pip install py-spy
+H=./apps/caffeine/caffeine/loadtest/harness/lt.py
+# Save the baseline that `--reset` restores before each run
+./env/bin/python $H reset --bench . --site test_site --save
+./env/bin/python $H profile --bench . --site test_site --label queries-base --reset
+./env/bin/python $H load --bench . --site test_site --label load-base --reset --duration 10m --vus 20
+# Switch the apps to the new build, run the same two commands with new labels, then:
+./env/bin/python $H compare logs/loadtest/<base run> logs/loadtest/<new run>
+```
+
+Runs go to `logs/loadtest/` in the bench. Each run has `summary.md`, `summary.json` and the raw files. Use `analyze` to rebuild a summary from the raw files.
+
+Environment variables:
+
+| Variable | Use |
+| --- | --- |
+| `LT_DB_ROOT_PASSWORD`, `LT_DB_ROOT_USER` | Database admin login. It is necessary for the slow log, lock waits, the deadlock report and Postgres resets. Without it, the harness uses the site's own user and records only the server counters. |
+| `LT_DB_LOG` | Path of the database server log. The harness copies the part written during the run. Postgres slow statements and lock waits are read from this copy. |
+| `K6` | Path of the k6 binary, if it is not on `PATH`. |
+
+The MariaDB slow log is written by the database server into the run directory, so it works only when the database runs on the same host.
 
 #### Tweaking / Extending
 
