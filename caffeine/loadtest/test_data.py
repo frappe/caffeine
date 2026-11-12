@@ -1,4 +1,5 @@
 import itertools
+import json
 from copy import deepcopy
 from dataclasses import dataclass
 
@@ -49,8 +50,20 @@ class Setup:
 		self.setup_customers()
 		self.setup_users()
 		self.setup_opening_stock()
+		self.write_scale()
 		frappe.db.commit()
 		frappe.cache.flushall()
+
+	def write_scale(self):
+		"""Record the scale so the load test harness passes matching numbers to k6."""
+		scale = {
+			"NUM_ITEMS": self.n_items,
+			"NUM_WAREHOUSES": self.n_warehouses,
+			"CUSTOMERS_PER_WAREHOUSE": self.customers_per_warehouse,
+			"USERS_PER_WAREHOUSE": self.users_per_warehouse,
+		}
+		with open(frappe.get_site_path("loadtest.json"), "w") as f:
+			json.dump(scale, f)
 
 	def setup_company(self):
 		if frappe.db.exists("Company", COMPANY_NAME):

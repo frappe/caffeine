@@ -14,6 +14,14 @@ const submit_payment_trend = new Trend("submit_payment");
 const make_delivery_trend = new Trend("make_delivery");
 const save_delivery_trend = new Trend("save_delivery");
 const submit_delivery_trend = new Trend("submit_delivery");
+// Lets BASE_URL be an IP address, e.g. http://127.0.0.1:8000
+export const SITE_HEADERS = __ENV.SITE ? { "X-Frappe-Site-Name": __ENV.SITE } : {};
+const ITEMS_PER_INVOICE = parseInt(__ENV.ITEMS_PER_INVOICE) || 3;
+const THINK_TIME = parseFloat(__ENV.THINK_TIME ?? "1");
+
+export function think(seconds) {
+	if (THINK_TIME > 0) sleep(seconds * THINK_TIME);
+}
 
 function get_doc(doctype, name) {
 	let fetch_doc = request(
@@ -75,7 +83,7 @@ export function sales_invoice_create(config) {
 			items: [],
 		};
 
-		for (let i = 0; i < 3; i++) {
+		for (let i = 0; i < ITEMS_PER_INVOICE; i++) {
 			doc.items.push({
 				__islocal: 1,
 				__unsaved: 1,
@@ -148,7 +156,7 @@ export function sales_invoice_payment(config, invoice) {
 		payment.branch = invoice.branch;
 		payment.name = `new-payment-entry-${getRandomInt(0, 1000000)}`;
 
-		sleep(0.5);
+		think(0.5);
 		let save_payment = request(
 			`/api/method/frappe.desk.form.save.savedocs`,
 			{
@@ -159,7 +167,7 @@ export function sales_invoice_payment(config, invoice) {
 		);
 		payment = JSON.parse(save_payment.body).docs[0];
 
-		sleep(0.5);
+		think(0.5);
 		request(
 			"/api/method/frappe.desk.form.save.savedocs",
 			{
@@ -168,7 +176,7 @@ export function sales_invoice_payment(config, invoice) {
 			},
 			submit_payment_trend
 		);
-		sleep(0.5);
+		think(0.5);
 		invoice = get_doc(invoice.doctype, invoice.name);
 		check(invoice, { order_status_paid: (doc) => doc.status === "Paid" });
 	});
@@ -190,7 +198,7 @@ export function deliver_items(config, invoice) {
 		delivery.branch = invoice.branch;
 		delivery.name = `new-delivery-note-${getRandomInt(0, 1000000)}`;
 
-		sleep(0.5);
+		think(0.5);
 		let save_delivery = request(
 			"/api/method/frappe.desk.form.save.savedocs",
 			{
@@ -201,7 +209,7 @@ export function deliver_items(config, invoice) {
 		);
 		delivery = JSON.parse(save_delivery.body).docs[0];
 
-		sleep(0.5);
+		think(0.5);
 		request(
 			"/api/method/frappe.desk.form.save.savedocs",
 			{
@@ -211,12 +219,20 @@ export function deliver_items(config, invoice) {
 			submit_delivery_trend
 		);
 
-		sleep(0.5);
+		think(0.5);
 		invoice = get_doc(invoice.doctype, invoice.name); // check delivery status
 	});
 }
 
 // =========== Utils ==============
+
+function log_failure(name, res) {
+	let exc_type = "unknown";
+	try {
+		exc_type = JSON.parse(res.body).exc_type || exc_type;
+	} catch (e) {}
+	console.warn(`FAIL ${name} ${res.status} ${exc_type}`);
+}
 
 function getRandomInt(min, max) {
 	return Math.floor(Math.random() * (max - min)) + min;
@@ -224,7 +240,7 @@ function getRandomInt(min, max) {
 
 export function request(path, payload, trend, expected_status_code = 200) {
 	let res = http.post(`${__ENV.BASE_URL}${path}`, JSON.stringify(payload), {
-		headers: { "Content-Type": "application/json" },
+		headers: { "Content-Type": "application/json", ...SITE_HEADERS },
 	});
 
 	if (trend) {
@@ -232,6 +248,7 @@ export function request(path, payload, trend, expected_status_code = 200) {
 		let tests = {};
 		tests[trend.name] = (r) => r.status === expected_status_code;
 		let result = check(res, tests);
+		if (!result) log_failure(trend.name, res);
 		if (!result && __ENV.CI) {
 			console.log(JSON.stringify(res, null, 4));
 			exec.test.abort("Request failed in CI");
